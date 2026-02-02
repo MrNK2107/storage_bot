@@ -1,19 +1,33 @@
 # Disk Usage Analyzer (Storage Bot)
 
-A modern, fast, and interactive disk usage analyzer built with Python and PyQt6. This tool helps you visualize and manage your disk space by scanning directories and displaying their usage in a clear, interactive interface.
+A modern, fast, and feature-rich disk usage analyzer and cleanup tool built with Python and PyQt6. Storage Bot helps you visualize disk space, track usage over time, and intelligently clean up clutter.
 
 ## Features
 
--   **Fast Scanning**: Utilizes optimized multi-threading to quickly scan directories and analyze disk usage.
--   **Interactive Visualization**: View your disk usage in a structured list/treemap view.
--   **Details Panel**: Get detailed information about selected files and folders.
--   **Modern UI**: Features a sleek, dark-themed interface designed for Windows 11.
--   **Cross-Platform**: Built with PyQt6, capable of running on Windows, macOS, and Linux (though optimized for Windows).
+### 🔍 Deep Analysis
+-   **Fast Scanning**: Utilizes optimized multi-threading to quickly scan directories and huge drives.
+-   **Visual Analytics**: Beautiful interactive charts visualize your storage breakdown by category (Apps, Media, Development, etc.).
+-   **Drive Detection**: Automatically detects and lists all available drives (C:, D:, etc.) for one-click scanning.
+
+### 🧠 Smart Cleanup
+-   **Intelligent Suggestions**: Automatically identifies:
+    -   **Abandoned Cache**: Old cache files unused for >14 days.
+    -   **Installer Residue**: Setup files (.exe, .msi) left in Downloads.
+    -   **Ghost Folders**: Empty directories cluttering your system.
+    -   **Oversized Files**: massive media or archives taking up space.
+-   **Duplicate Finder**: Detects exact duplicate files efficiently using size grouping and partial hashing.
+-   **Safe Deletion**: Integrated with the system Recycle Bin—files are never permanently deleted without your final review.
+
+### 📈 History & Insights
+-   **Storage Trends**: Tracks your storage usage over time.
+-   **Smart Insights**: Tells you exactly how much space you've used or freed since your last scan (e.g., "+2GB since Yesterday").
 
 ## Requirements
 
 -   Python 3.8+
 -   PyQt6
+-   PyQt6-Charts
+-   send2trash
 
 ## Installation
 
@@ -25,7 +39,7 @@ A modern, fast, and interactive disk usage analyzer built with Python and PyQt6.
 
 2.  Install the required dependencies:
     ```bash
-    pip install PyQt6
+    pip install PyQt6 PyQt6-Charts send2trash
     ```
 
 ## Usage
@@ -36,19 +50,19 @@ Run the application using Python:
 python main.py
 ```
 
-1.  Click "Start Scan" in the sidebar.
-2.  Select a folder to analyze.
-3.  Wait for the scan to complete.
-4.  Navigate through the file structure and view details in the panel.
+1.  **Select a Drive/Folder**: Click a drive in the sidebar or select a custom folder.
+2.  **View Analytics**: See the donut chart and treemap visualization of your files.
+3.  **Check Recommendations**: Click "Cleanup Recommendations" to review and safely remove junk files.
 
 ## Project Structure
 
--   `main.py`: Entry point of the application. Handles the main window and UI setup.
--   `src/scanner.py`: Logic for scanning the file system.
--   `src/ui/`: Contains UI components:
-    -   `treemap_widget.py`: Widget for treemap visualization.
-    -   `storage_list_view.py`: Widget for list-based visualization.
-    -   `details_panel.py`: Panel for displaying file/folder details.
+-   `main.py`: Application entry point and UI orchestration.
+-   `src/scanner.py`: Background workers for scanning, analysis, and duplicate detection.
+-   `src/history_manager.py`: Manages local storage history and insights generation.
+-   `src/ui/`:
+    -   `chart_widget.py`: Visual analytics components.
+    -   `recommendation_view.py`: Interactive cleanup list.
+    -   `treemap_widget.py`: Visualization logic.
 
 ## License
 
