@@ -2,8 +2,8 @@ import sys
 import os
 import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QLabel, QPushButton, QStackedWidget, QFileDialog)
-from PyQt6.QtCore import Qt, QSize
+                             QHBoxLayout, QLabel, QPushButton, QStackedWidget, QFileDialog, QSpacerItem, QSizePolicy)
+from PyQt6.QtCore import Qt, QSize, QStorageInfo
 from PyQt6.QtGui import QIcon, QFont, QColor, QPalette
 
 # Import scanner (Assuming it's ready based on previous step)
@@ -70,8 +70,41 @@ class MainWindow(QMainWindow):
         self.sidebar.setStyleSheet("background-color: #2D2D2D; border-right: 1px solid #3D3D3D;")
         layout = QVBoxLayout(self.sidebar)
         layout.setContentsMargins(10, 20, 10, 20)
+        layout.setSpacing(10)
         
-        self.btn_scan = QPushButton("Start Scan")
+        # Drives Section
+        lbl_drives = QLabel("Drives")
+        lbl_drives.setStyleSheet("color: #AAAAAA; font-weight: bold; padding-bottom: 5px;")
+        layout.addWidget(lbl_drives)
+
+        # Detect Drives
+        for volume in QStorageInfo.mountedVolumes():
+            if volume.isValid() and volume.isReady():
+                name = volume.displayName() or volume.rootPath()
+                btn_drive = QPushButton(f"{name} ({self.format_size_simple(volume.bytesAvailable())} free)")
+                btn_drive.setFixedHeight(40)
+                btn_drive.setStyleSheet("""
+                    QPushButton {
+                        background-color: #333333; 
+                        color: white; 
+                        border-radius: 4px; 
+                        text-align: left;
+                        padding-left: 10px;
+                    }
+                    QPushButton:hover { background-color: #404040; }
+                """)
+                # Capture path in loop
+                btn_drive.clicked.connect(lambda checked, p=volume.rootPath(): self.start_scan(p))
+                layout.addWidget(btn_drive)
+
+        layout.addSpacing(20)
+
+        # Custom Scan Section
+        lbl_custom = QLabel("Custom")
+        lbl_custom.setStyleSheet("color: #AAAAAA; font-weight: bold; padding-bottom: 5px;")
+        layout.addWidget(lbl_custom)
+        
+        self.btn_scan = QPushButton("Select Folder...")
         self.btn_scan.setFixedHeight(40)
         self.btn_scan.setStyleSheet("""
             QPushButton {
@@ -88,6 +121,14 @@ class MainWindow(QMainWindow):
         layout.addStretch()
         
         self.main_layout.addWidget(self.sidebar)
+
+    def format_size_simple(self, size):
+        # Quick formatter for drive list
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024:
+                return f"{size:.0f}{unit}"
+            size /= 1024
+        return f"{size:.0f}PB"
 
     def setup_content_area(self):
         self.content_area = QWidget()
@@ -140,12 +181,15 @@ class MainWindow(QMainWindow):
     def select_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Scan")
         if folder:
-            self.header_label.setText(f"Scanning: {folder}...")
-            self.insights_label.hide()
-            self.btn_scan.setEnabled(False)
-            self.stack.setCurrentIndex(0)
-            self.page_placeholder.setText("Scanning... This process utilizes optimized multi-threading.")
-            self.scan_manager.start_scan(folder, self.on_scan_finished)
+            self.start_scan(folder)
+
+    def start_scan(self, folder):
+        self.header_label.setText(f"Scanning: {folder}...")
+        self.insights_label.hide()
+        self.btn_scan.setEnabled(False)
+        self.stack.setCurrentIndex(0)
+        self.page_placeholder.setText("Scanning... This process utilizes optimized multi-threading.")
+        self.scan_manager.start_scan(folder, self.on_scan_finished)
 
     def on_scan_finished(self, root_node):
         self.current_root = root_node
