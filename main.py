@@ -13,6 +13,8 @@ from src.history_manager import HistoryManager
 from src.ui.treemap_widget import TreemapWidget
 from src.ui.storage_list_view import StorageListView
 from src.ui.details_panel import DetailsPanel
+from src.ui.chart_widget import StorageBreakdownChart
+from src.ui.recommendation_view import RecommendationView
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -118,6 +120,29 @@ class MainWindow(QMainWindow):
         self.btn_scan.clicked.connect(self.select_folder)
         
         layout.addWidget(self.btn_scan)
+        
+        layout.addSpacing(20)
+        
+        # Tools
+        lbl_tools = QLabel("Tools")
+        lbl_tools.setStyleSheet("color: #AAAAAA; font-weight: bold; padding-bottom: 5px;")
+        layout.addWidget(lbl_tools)
+        
+        self.btn_recs = QPushButton("Cleanup Recommendations")
+        self.btn_recs.setFixedHeight(40)
+        self.btn_recs.setStyleSheet("""
+            QPushButton {
+                background-color: #2F9E44; 
+                color: white; 
+                border-radius: 4px; 
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #40C057; }
+        """)
+        self.btn_recs.clicked.connect(self.show_recommendations)
+        self.btn_recs.setEnabled(False) # Enable after analysis
+        layout.addWidget(self.btn_recs)
+
         layout.addStretch()
         
         self.main_layout.addWidget(self.sidebar)
@@ -151,9 +176,16 @@ class MainWindow(QMainWindow):
 
         header_layout.addWidget(self.header_label)
         header_layout.addWidget(self.insights_label)
+        
+        # Chart Widget
+        self.chart_widget = StorageBreakdownChart()
+        self.chart_widget.setFixedHeight(200)
+        self.chart_widget.hide()
+        header_layout.addWidget(self.chart_widget)
+        
         layout.addWidget(header_container)
         
-        # Stacked Widget to switch between Placeholder and Treemap
+        # Stacked Widget
         self.stack = QStackedWidget()
         layout.addWidget(self.stack)
         
@@ -164,10 +196,13 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.page_placeholder)
         
         # Page 1: Treemap
-        # Page 1: Treemap / List View
         self.storage_view = StorageListView()
         self.storage_view.itemClicked.connect(self.on_treemap_clicked)
         self.stack.addWidget(self.storage_view)
+        
+        # Page 2: Recommendations
+        self.recommendation_view = RecommendationView()
+        self.stack.addWidget(self.recommendation_view)
         
         self.main_layout.addWidget(self.content_area, 1)
 
@@ -186,7 +221,10 @@ class MainWindow(QMainWindow):
     def start_scan(self, folder):
         self.header_label.setText(f"Scanning: {folder}...")
         self.insights_label.hide()
+        self.chart_widget.hide()
         self.btn_scan.setEnabled(False)
+        self.btn_recs.setEnabled(False)
+        
         self.stack.setCurrentIndex(0)
         self.page_placeholder.setText("Scanning... This process utilizes optimized multi-threading.")
         self.scan_manager.start_scan(folder, self.on_scan_finished)
@@ -205,10 +243,25 @@ class MainWindow(QMainWindow):
         else:
             self.insights_label.setText("First scan recorded. Insights will appear on future scans.")
             self.insights_label.show()
+            
+        # Update Chart
+        self.chart_widget.update_data(root_node)
+        self.chart_widget.show()
 
         # Show Treemap
         self.stack.setCurrentIndex(1)
         self.storage_view.set_data(root_node)
+        
+        # Start background analysis
+        self.scan_manager.start_analysis(root_node, self.on_analysis_finished)
+
+    def on_analysis_finished(self, suggestions, duplicates):
+        self.recommendation_view.set_data(suggestions, duplicates)
+        self.btn_recs.setEnabled(True)
+        # Optional: Notification or badge on the button
+
+    def show_recommendations(self):
+        self.stack.setCurrentWidget(self.recommendation_view)
 
     def show_insights(self, insights):
         diff = insights['size_diff']
