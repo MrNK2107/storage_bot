@@ -1,5 +1,6 @@
 import sys
 import os
+import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QPushButton, QStackedWidget, QFileDialog)
 from PyQt6.QtCore import Qt, QSize
@@ -7,6 +8,7 @@ from PyQt6.QtGui import QIcon, QFont, QColor, QPalette
 
 # Import scanner (Assuming it's ready based on previous step)
 from src.scanner import ScanManager, FileNode
+from src.history_manager import HistoryManager
 
 from src.ui.treemap_widget import TreemapWidget
 from src.ui.storage_list_view import StorageListView
@@ -21,6 +23,7 @@ class MainWindow(QMainWindow):
         
         # Data
         self.scan_manager = ScanManager()
+        self.history_manager = HistoryManager()
         self.current_root = None
 
         # Main Layout
@@ -94,12 +97,19 @@ class MainWindow(QMainWindow):
         # Header (Overlay or separate?)
         # For simple structure, keep header at top
         header_container = QWidget()
-        header_layout = QHBoxLayout(header_container)
+        header_layout = QVBoxLayout(header_container)
         header_layout.setContentsMargins(20, 20, 20, 10)
         
         self.header_label = QLabel("Ready to Scan")
         self.header_label.setStyleSheet("font-size: 24px; font-weight: bold;")
+        
+        self.insights_label = QLabel("")
+        self.insights_label.setStyleSheet("font-size: 14px; color: #CCCCCC; margin-top: 5px;")
+        self.insights_label.setWordWrap(True)
+        self.insights_label.hide()
+
         header_layout.addWidget(self.header_label)
+        header_layout.addWidget(self.insights_label)
         layout.addWidget(header_container)
         
         # Stacked Widget to switch between Placeholder and Treemap
@@ -131,6 +141,7 @@ class MainWindow(QMainWindow):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Scan")
         if folder:
             self.header_label.setText(f"Scanning: {folder}...")
+            self.insights_label.hide()
             self.btn_scan.setEnabled(False)
             self.stack.setCurrentIndex(0)
             self.page_placeholder.setText("Scanning... This process utilizes optimized multi-threading.")
@@ -139,11 +150,43 @@ class MainWindow(QMainWindow):
     def on_scan_finished(self, root_node):
         self.current_root = root_node
         self.btn_scan.setEnabled(True)
-        self.header_label.setText(f"Scan Complete")
+        self.header_label.setText(f"Scan Complete: {root_node.path}")
         
+        # Save History & Get Insights
+        self.history_manager.save_scan(root_node.path, root_node)
+        insights = self.history_manager.get_insights(root_node.path, root_node)
+        
+        if insights:
+            self.show_insights(insights)
+        else:
+            self.insights_label.setText("First scan recorded. Insights will appear on future scans.")
+            self.insights_label.show()
+
         # Show Treemap
         self.stack.setCurrentIndex(1)
         self.storage_view.set_data(root_node)
+
+    def show_insights(self, insights):
+        diff = insights['size_diff']
+        diff_str = self.format_size(abs(diff))
+        direction = "increased" if diff > 0 else "decreased"
+        color = "#ff6b6b" if diff > 0 else "#51cf66" # Red for increase, Green for decrease
+        
+        prev_date = datetime.datetime.fromtimestamp(insights['previous_timestamp']).strftime('%Y-%m-%d %H:%M')
+        
+        msg = f"Storage {direction} by <span style='color:{color}; font-weight:bold'>{diff_str}</span> since {prev_date}."
+        
+        if insights['top_changes']:
+            msg += "<br>Top changes: "
+            changes_str = []
+            for name, change in insights['top_changes']:
+                change_fmt = self.format_size(change)
+                sign = "+" if change > 0 else ""
+                changes_str.append(f"{name} ({sign}{change_fmt})")
+            msg += ", ".join(changes_str)
+            
+        self.insights_label.setText(msg)
+        self.insights_label.show()
 
     def on_treemap_clicked(self, node):
         self.detail_panel.show()
@@ -151,7 +194,7 @@ class MainWindow(QMainWindow):
 
     def format_size(self, size):
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if size < 1024:
+            if abs(size) < 1024:
                 return f"{size:.2f} {unit}"
             size /= 1024
         return f"{size:.2f} PB"
